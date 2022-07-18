@@ -8,7 +8,6 @@ from machine import Pin
 
 #define and store relay and switch pin assignments
 #switch pins can be altered but refer to relay documentation for availablility
-#switch functionality not yet ready
 #DO NOT CHANGE THE RELAY PINS
 
 relays = {}
@@ -123,6 +122,8 @@ def update_relay_states(mqtt_client):
             mqtt_client.publish(MQTT_MSG,str(relays[i]['relay'].value()))
             relays[i]["last_state"] = relays[i]["relay"].value()
 
+activate_wlan()
+
 try:
   mqtt_client = setup_mqtt()
 except OSError as e:
@@ -131,7 +132,7 @@ except OSError as e:
 #publish home assistant discovery topics
 for i in range(1,9):
     MQTT_MSG = '{"command_topic": "' + MQTT_DEVICE_NAME + '/command/relay/' + str(i) + '","device": {"identifiers": ["' + MQTT_DEVICE_NAME + '"], "manufacturer": "' + DEV_INFO_MANUFACTURER +'", "model": "' + DEV_INFO_MODEL + '", "name": "' + MQTT_DEVICE_NAME + '"}, "name": "' + MQTT_DEVICE_NAME + '_ch_' + str(i) + '", "payload_off": 0, "payload_on": 1, "state_topic": "'+ MQTT_DEVICE_NAME +'/status/relay/' + str(i) + '", "unique_id": "'+MQTT_DEVICE_NAME + '_relay_' + str(i) + '_pico"}'
-    mqtt_client.publish(MQTT_DISC_TOPIC + '/ch' + str(i) + '/config', MQTT_MSG)
+    mqtt_client.publish(MQTT_DISC_TOPIC + '/ch' + str(i) + '/config', MQTT_MSG, retain=True)
 
 while True:
   try:
