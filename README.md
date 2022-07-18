@@ -1,6 +1,8 @@
 # Pi Pico Relay B to MQTT/HA
 Integrate a Raspberry Pi Pico W controlled Waveshare Pico-Relay-B into Home Assistant
 
+Pico-Relay-B: https://www.waveshare.com/pico-relay-b.htm
+
 You will need the folder umqtt and its contents from here:
 https://github.com/micropython/micropython-lib/tree/master/micropython/umqtt.simple
 
