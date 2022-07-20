@@ -58,6 +58,7 @@ WLAN_PWD  = secrets["WLAN_PWD"]
 
 #keepalive timer
 ka_count = 0
+ka_threshold = 30 #status update interval (10 = 1 second)
 
 wlan = network.WLAN(network.STA_IF)
 
@@ -131,8 +132,10 @@ def update_state():
   MQTT_MSG = 'online'
   mqtt_client.publish(MQTT_STATUS_TOPIC, MQTT_MSG)
 
+#activate WiFi connection
 activate_wlan()
 
+#connect to MQTT broker
 try:
   mqtt_client = setup_mqtt()
 except OSError as e:
@@ -140,19 +143,32 @@ except OSError as e:
 
 #publish home assistant discovery topics
 for i in range(1,9):
-    MQTT_MSG = '{"availability": [{"topic": "' + MQTT_STATUS_TOPIC +'"}],"command_topic": "' + MQTT_DEVICE_NAME + '/command/relay/' + str(i) + '","device": {"identifiers": ["' + MQTT_DEVICE_NAME + '"], "manufacturer": "' + DEV_INFO_MANUFACTURER +'", "model": "' + DEV_INFO_MODEL + '", "name": "' + MQTT_DEVICE_NAME + '"}, "name": "' + MQTT_DEVICE_NAME + '_ch_' + str(i) + '", "payload_off": 0, "payload_on": 1, "state_topic": "'+ MQTT_DEVICE_NAME +'/status/relay/' + str(i) + '", "unique_id": "'+MQTT_DEVICE_NAME + '_relay_' + str(i) + '_pico"}'
+    MQTT_MSG = '{"command_topic": "' + MQTT_DEVICE_NAME + '/command/relay/' + str(i) + '",{"availability": [{"topic": "' + MQTT_STATUS_TOPIC +'"}],"device": {"identifiers": ["' + MQTT_DEVICE_NAME + '"], "manufacturer": "' + DEV_INFO_MANUFACTURER +'", "model": "' + DEV_INFO_MODEL + '", "name": "' + MQTT_DEVICE_NAME + '"}, "name": "' + MQTT_DEVICE_NAME + '_ch_' + str(i) + '", "payload_off": 0, "payload_on": 1, "state_topic": "'+ MQTT_DEVICE_NAME +'/status/relay/' + str(i) + '", "unique_id": "'+MQTT_DEVICE_NAME + '_relay_' + str(i) + '_pico"}'
     mqtt_client.publish(MQTT_DISC_TOPIC + '/ch' + str(i) + '/config', MQTT_MSG, retain=True)
 
+#set initial status
 update_state()
 
+#main loop
 while True:
   try:
+    #check for incoming commands
     mqtt_client.check_msg()
+    
+    #check for changes and update state(s) if needed
     update_relay_states(mqtt_client)
+    
+    #increment keepalive counter and send status update if threshold reached/breached
     ka_count +=1
-    if ka_count >= 50:
+    if ka_count >= ka_threshold:
       update_state()
       ka_count = 0
+
+    #wait before looping again
     time.sleep(0.1)
+
   except OSError as e:
     re_initialise()
+
+#add ip to autodiscovery
+
