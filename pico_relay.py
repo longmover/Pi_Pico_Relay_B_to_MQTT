@@ -1,6 +1,7 @@
 import rp2
 import network
 import machine
+import ubinascii
 import time
 from secrets import secrets
 from umqtt.simple import MQTTClient
@@ -43,10 +44,11 @@ MQTT_PORT   = secrets["MQTT_PORT"]
 
 #MQTT topic details
 MQTT_DEVICE_NAME   = secrets["MQTT_DEVICE_NAME"]
+MQTT_DEVICE_ID     = "0x00" + ubinascii.hexlify(machine.unique_id()).decode()
 MQTT_BASE          = MQTT_DEVICE_NAME + "/"
 MQTT_COMMAND_TOPIC = MQTT_BASE + "command/relay/#"
 MQTT_STATUS_TOPIC  = MQTT_BASE + "status"
-MQTT_DISC_TOPIC    = "homeassistant/switch/" + MQTT_DEVICE_NAME
+MQTT_DISC_TOPIC    = "homeassistant/switch/" + MQTT_DEVICE_ID
 
 #Device details
 DEV_INFO_MANUFACTURER = "Waveshare"
@@ -144,9 +146,9 @@ except OSError as e:
 #publish home assistant discovery topics
 for i in range(1,9):
     MQTT_MSG = '{"command_topic": "' + MQTT_DEVICE_NAME + '/command/relay/' + str(i) + '",{"availability": [{"topic": "' + MQTT_STATUS_TOPIC +'"}],"device": {"identifiers": ["' + MQTT_DEVICE_NAME + '"], "manufacturer": "' + DEV_INFO_MANUFACTURER +'", "model": "' + DEV_INFO_MODEL + '", "name": "' + MQTT_DEVICE_NAME + '"}, "name": "' + MQTT_DEVICE_NAME + '_ch_' + str(i) + '", "payload_off": 0, "payload_on": 1, "state_topic": "'+ MQTT_DEVICE_NAME +'/status/relay/' + str(i) + '", "unique_id": "'+MQTT_DEVICE_NAME + '_relay_' + str(i) + '_pico"}'
-    mqtt_client.publish(MQTT_DISC_TOPIC + '/ch' + str(i) + '/config', MQTT_MSG, retain=True)
+    mqtt_client.publish(MQTT_DISC_TOPIC + '/switch/' + str(i) + '/config', MQTT_MSG, retain=True)
 
-#set initial status
+#set initial statusa
 update_state()
 
 #main loop
@@ -169,6 +171,3 @@ while True:
 
   except OSError as e:
     re_initialise()
-
-#add ip to autodiscovery
-
