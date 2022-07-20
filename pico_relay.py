@@ -39,6 +39,7 @@ rp2.country('GB')
 MQTT_BROKER = secrets["MQTT_BROKER"]
 MQTT_USER   = secrets["MQTT_USER"]
 MQTT_PWD    = secrets["MQTT_PWD"]
+MQTT_PORT   = secrets["MQTT_PORT"]
 
 #MQTT topic details
 MQTT_DEVICE_NAME   = secrets["MQTT_DEVICE_NAME"]
@@ -54,6 +55,9 @@ DEV_INFO_MODEL        = "Pico Relay B"
 #WiFi credentials
 WLAN_SSID = secrets["WLAN_SSID"]
 WLAN_PWD  = secrets["WLAN_PWD"]
+
+#keepalive timer
+ka_count = 0
 
 wlan = network.WLAN(network.STA_IF)
 
@@ -95,8 +99,9 @@ def msg_in(topic, msg):
   relays[target]["relay"](mode)
 
 def setup_mqtt():
-  mqtt_client = MQTTClient(MQTT_DEVICE_NAME, MQTT_BROKER)
+  mqtt_client = MQTTClient(MQTT_DEVICE_NAME, MQTT_BROKER, port=MQTT_PORT, user=MQTT_USER, password=MQTT_PWD, keepalive=10, ssl=False)
   mqtt_client.set_callback(msg_in)
+  mqtt_client.set_last_will(MQTT_DEVICE_NAME + "/status", "offline", qos=0, retain=False)
   mqtt_client.connect()
   mqtt_client.subscribe(MQTT_COMMAND_TOPIC)
   print('MQTT connection sucessful!')
@@ -122,6 +127,10 @@ def update_relay_states(mqtt_client):
             mqtt_client.publish(MQTT_MSG,str(relays[i]['relay'].value()))
             relays[i]["last_state"] = relays[i]["relay"].value()
 
+def update_state():
+  MQTT_MSG = 'online'
+  mqtt_client.publish(MQTT_STATUS_TOPIC, MQTT_MSG)
+
 activate_wlan()
 
 try:
@@ -131,13 +140,19 @@ except OSError as e:
 
 #publish home assistant discovery topics
 for i in range(1,9):
-    MQTT_MSG = '{"command_topic": "' + MQTT_DEVICE_NAME + '/command/relay/' + str(i) + '","device": {"identifiers": ["' + MQTT_DEVICE_NAME + '"], "manufacturer": "' + DEV_INFO_MANUFACTURER +'", "model": "' + DEV_INFO_MODEL + '", "name": "' + MQTT_DEVICE_NAME + '"}, "name": "' + MQTT_DEVICE_NAME + '_ch_' + str(i) + '", "payload_off": 0, "payload_on": 1, "state_topic": "'+ MQTT_DEVICE_NAME +'/status/relay/' + str(i) + '", "unique_id": "'+MQTT_DEVICE_NAME + '_relay_' + str(i) + '_pico"}'
+    MQTT_MSG = '{"availability": [{"topic": "' + MQTT_STATUS_TOPIC +'"}],"command_topic": "' + MQTT_DEVICE_NAME + '/command/relay/' + str(i) + '","device": {"identifiers": ["' + MQTT_DEVICE_NAME + '"], "manufacturer": "' + DEV_INFO_MANUFACTURER +'", "model": "' + DEV_INFO_MODEL + '", "name": "' + MQTT_DEVICE_NAME + '"}, "name": "' + MQTT_DEVICE_NAME + '_ch_' + str(i) + '", "payload_off": 0, "payload_on": 1, "state_topic": "'+ MQTT_DEVICE_NAME +'/status/relay/' + str(i) + '", "unique_id": "'+MQTT_DEVICE_NAME + '_relay_' + str(i) + '_pico"}'
     mqtt_client.publish(MQTT_DISC_TOPIC + '/ch' + str(i) + '/config', MQTT_MSG, retain=True)
+
+update_state()
 
 while True:
   try:
     mqtt_client.check_msg()
     update_relay_states(mqtt_client)
+    ka_count +=1
+    if ka_count >= 50:
+      update_state()
+      ka_count = 0
     time.sleep(0.1)
   except OSError as e:
     re_initialise()
